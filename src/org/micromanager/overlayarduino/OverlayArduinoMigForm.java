@@ -284,10 +284,10 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 
 	@Override
 	public void ValueChanged(ArduinoInputEvent e) {
-		this.setStatus(String.format("Value changed to %d, segment: %d",e.getDigitalValue(),e.getCount()));
+		this.setStatus(String.format("Value changed to %d, segment: %d",e.getDigitalValue(),processor_.getCurrentSegmentIdx()));
 		radioInput0_.setSelected(e.isHighAt0());
 		radioInput1_.setSelected(e.isHighAt1());
-		countUpLabel_.setText(String.valueOf(e.getCount()));
+		countUpLabel_.setText(String.valueOf(processor_.getCurrentSegmentIdx()));
 	}
 
 	@Override

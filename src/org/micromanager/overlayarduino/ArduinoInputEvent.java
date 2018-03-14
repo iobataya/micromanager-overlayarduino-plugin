@@ -2,11 +2,9 @@ package org.micromanager.overlayarduino;
 
 public class ArduinoInputEvent {
 	private final int digitalValue_;
-	private final int count_;
 
-	public ArduinoInputEvent(int digital, int count) {
+	public ArduinoInputEvent(int digital) {
 		digitalValue_ = (digital & 0x03);
-		count_ = count;
 	}
 
 	public int getDigitalValue() {
@@ -19,9 +17,5 @@ public class ArduinoInputEvent {
 
 	public boolean isHighAt1() {
 		return ((digitalValue_ & 0x02) == 0x02);
-	}
-
-	public int getCount() {
-		return count_;
 	}
 }

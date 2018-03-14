@@ -178,6 +178,10 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 		counterSize_ = c;
 	}
 
+	/**
+	 * Size of segment size
+	 * @return
+	 */
 	public int getSegmentCount() {
 		return counterSize_;
 	}
@@ -223,11 +227,12 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 	 */
 	@Override
 	public void process() {
+		this.setName("OverlayArduino");
 		if (poller_ == null) {
 			// Singleton, poller_ polls Arduino's DigitalInput value
 			// via USB serial-control on another thread.
 			poller_ = ArduinoPoller.getInstance(gui_);
-			poller_.setListener(this);
+			poller_.addListener(this);
 			subThread = new Thread(poller_);
 			subThread.setName(LBL_POLLER);
 			subThread.start();
@@ -276,7 +281,7 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 			myFrame_ = null;
 		}
 		if (poller_ != null) {
-			poller_.removeListener();
+			poller_.removeListener(this);
 			poller_ = null;
 		}
 	}
@@ -293,7 +298,7 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 		setInputValue(e.getDigitalValue());
 
 		if (listener_ != null) {
-			listener_.ValueChanged(new ArduinoInputEvent(e.getDigitalValue(), currentCounter_));
+			listener_.ValueChanged(new ArduinoInputEvent(e.getDigitalValue()));
 		}
 	}
 
