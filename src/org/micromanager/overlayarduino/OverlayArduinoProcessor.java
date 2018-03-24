@@ -39,6 +39,7 @@ import ij.process.ShortProcessor;
 import mmcorej.CMMCore;
 import mmcorej.TaggedImage;
 
+import org.micromanager.arduinoio.*;
 /**
  *
  */

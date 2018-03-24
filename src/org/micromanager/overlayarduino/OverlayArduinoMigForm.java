@@ -62,7 +62,7 @@ import org.micromanager.utils.MMException;
 import org.micromanager.utils.ReportingUtils;
 
 import mmcorej.StrVector;
-
+import org.micromanager.arduinoio.*;
 /**
  *
  */
@@ -102,6 +102,8 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 			processor.makeConfigurationGUI();
 			mmStudio.getAcquisitionEngine().getImageProcessors().add(processor);
 
+			ArduinoIoMigForm arduino = new ArduinoIoMigForm(mmStudio);
+			arduino.setVisible(true);
 		} catch (ClassNotFoundException e) {
 			ReportingUtils.showError(e, "A java error has caused Micro-Manager to exit.");
 			System.exit(1);
