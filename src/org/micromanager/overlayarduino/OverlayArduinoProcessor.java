@@ -66,7 +66,6 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 	private static final String MSG_NOTHING_DONE = "No process done.";
 	private static final String MSG_DONE_BOTH = "Drew blocks and embedded tags";
 	private static final String ERR_ILLEGAL_TYPE = "Cannot handle images other than 8 or 16 bit grayscale";
-	private static final String ERR_DEVICE_MISSING = "Arduino device or Analog-Input peripheral missing";
 	private static final String ERR_FRAME_MISSING = "myFrame_ is missing.";
 	private static final String LBL_POLLER = "Arduino poller";
 
@@ -231,11 +230,15 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 		if (poller_ == null) {
 			// Singleton, poller_ polls Arduino's DigitalInput value
 			// via USB serial-control on another thread.
+			try {
 			poller_ = ArduinoPoller.getInstance(gui_);
 			poller_.addListener(this);
 			subThread = new Thread(poller_);
 			subThread.setName(LBL_POLLER);
 			subThread.start();
+			}catch(Exception ex) {
+				ReportingUtils.logError(ex);
+			}
 		}
 		try {
 			TaggedImage nextImage = poll();
