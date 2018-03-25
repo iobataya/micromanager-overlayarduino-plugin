@@ -63,16 +63,19 @@ import org.micromanager.utils.ReportingUtils;
 
 import mmcorej.StrVector;
 import org.micromanager.arduinoio.*;
+
 /**
  *
  */
-public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListener{
+public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListener {
 	private MMDialog mcsPluginWindow;
 	private final ScriptInterface gui_;
 	private final mmcorej.CMMCore mmc_;
 	private final Preferences prefs_;
 	private final OverlayArduinoProcessor processor_;
 	private static SpinnerNumberModel segmentsSpinner_;
+	
+	private static ArduinoPoller poller_;
 	private String statusMessage_;
 	private final JCheckBox chkEnable_;
 	private final JCheckBox chkEmbedTags_;
@@ -84,13 +87,14 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 	private final Font fontSmall;
 	private final Font fontSmallBold_;
 
-	private static final String LABEL_ENABLE = "Enabling Arduino input plugin";	
+	private static final String LABEL_ENABLE = "Enabling Arduino input plugin";
 	private static final String PREF_ENABLE = "UseArduinoInput";
 	private static final String PREF_EMBEDTAGS = "EmbedDigitalInputTags";
 	private static final String PREF_OVERLAY = "DrawDigitalInputBlocks";
 
 	/**
 	 * entry point to test
+	 * 
 	 * @param arg
 	 */
 	public static void main(String[] arg) {
@@ -130,9 +134,8 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		processor_ = processor;
 		gui_ = gui;
 		gui_.addMMBackgroundListener(this);
-		processor_.setListener(this);
 		mmc_ = gui_.getMMCore();
-		prefs_ = this.getPrefsNode();
+		prefs_ = this.getPrefsNode();		
 		this.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 		this.addWindowListener(new WindowAdapter() {
 			@Override
@@ -142,15 +145,15 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		});
 
 		fontSmall = new Font("Arial", Font.PLAIN, 12);
-		fontSmallBold_ = new Font("Arial",Font.BOLD,14);
+		fontSmallBold_ = new Font("Arial", Font.BOLD, 14);
 
 		mcsPluginWindow = this;
 		this.setLayout(new MigLayout("flowx, fill, insets 8"));
 		this.setTitle(OverlayArduino.menuName);
 
 		loadAndRestorePosition(100, 100, 350, 250);
-		
-		// Checkbox to enable this processor		
+
+		// Checkbox to enable this processor
 		chkEnable_ = new JCheckBox();
 		chkEnable_.setText(LABEL_ENABLE);
 		chkEnable_.setFont(fontSmallBold_);
@@ -164,9 +167,9 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		});
 		chkEnable_.setSelected(prefs_.getBoolean(PREF_ENABLE, true));
 		add(chkEnable_, "span 3, wrap");
-		
-		// Checkbox for overlay or not 
-	    chkDrawBlocks_ = new JCheckBox();
+
+		// Checkbox for overlay or not
+		chkDrawBlocks_ = new JCheckBox();
 		chkDrawBlocks_.setText("Draw blocks on image");
 		chkDrawBlocks_.setToolTipText("Draw black-white blocks indicators at top-left.");
 		chkDrawBlocks_.setSelected(prefs_.getBoolean(PREF_OVERLAY, true));
@@ -190,11 +193,10 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 				statusLabel_.setText(" ");
 			}
 		});
-		
-		
+
 		add(chkEmbedTags_);
 		add(chkDrawBlocks_, "wrap");
-		
+
 		// Spinner for segment number
 		JLabel lblSegment = new JLabel("Segment count:");
 		lblSegment.setFont(fontSmall);
@@ -203,7 +205,7 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		segmentSpinner.setFont(fontSmall);
 		try {
 			int segCnt = prefs_.getInt("SegmentCount", 3);
-			segmentsSpinner_ = new SpinnerNumberModel(segCnt,1,1000,1);
+			segmentsSpinner_ = new SpinnerNumberModel(segCnt, 1, 1000, 1);
 			processor_.setSegmentCount(segCnt);
 		} catch (IllegalArgumentException e) {
 			segmentsSpinner_ = new SpinnerNumberModel(3, 1, 1000, 1);
@@ -214,15 +216,14 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 			public void stateChanged(javax.swing.event.ChangeEvent evt) {
 				int cnt = (Integer) segmentSpinner.getValue();
 				processor_.setSegmentCount(cnt);
-				prefs_.putInt("SegmentCount",cnt);
+				prefs_.putInt("SegmentCount", cnt);
 			}
 		});
 		countUpLabel_ = new JLabel("0");
 		// Add to GUI
 		add(lblSegment);
 		add(segmentSpinner, "growx");
-		add(countUpLabel_,"wrap");
-
+		add(countUpLabel_, "wrap");
 
 		// Input signals
 		radioInput0_ = new JRadioButton("Input0");
@@ -231,18 +232,27 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		radioInput1_.setEnabled(false);
 		// Add to GUI
 		add(radioInput0_);
-		add(radioInput1_,"wrap");
-		
+		add(radioInput1_, "wrap");
+
 		// Status bar
 		statusLabel_ = new JLabel(" ");
 		add(statusLabel_, "span 3, wrap");
 		// Add to GUI
 		processor_.setEnabled(chkEnable_.isSelected());
+		
+		// Setup ArduinoPoller and listener
+		try {
+			poller_ = ArduinoPoller.getInstance(gui_);
+			poller_.addListener(this);
+		} catch (Exception ex) {
+			ReportingUtils.logError(ex);
+		}
 	}
 
-	public mmcorej.CMMCore getMMCore(){
+	public mmcorej.CMMCore getMMCore() {
 		return mmc_;
 	}
+
 	@Override
 	public void dispose() {
 		super.dispose();
@@ -278,7 +288,6 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		return status;
 	}
 
-
 	public void updateProcessorEnabled(boolean enabled) {
 		chkEnable_.setSelected(enabled);
 		prefs_.putBoolean(PREF_ENABLE, enabled);
@@ -286,7 +295,8 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 
 	@Override
 	public void ValueChanged(ArduinoInputEvent e) {
-		this.setStatus(String.format("Value changed to %d, segment: %d",e.getDigitalValue(),processor_.getCurrentSegmentIdx()));
+		this.setStatus(String.format("Value changed to %d, segment: %d", e.getDigitalValue(),
+				processor_.getCurrentSegmentIdx()));
 		radioInput0_.setSelected(e.isHighAt0());
 		radioInput1_.setSelected(e.isHighAt1());
 		countUpLabel_.setText(String.valueOf(processor_.getCurrentSegmentIdx()));
@@ -298,7 +308,6 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 
 	@Override
 	public void IsFallingAt0() {
-		// TODO Auto-generated method stub
 	}
 
 	@Override
