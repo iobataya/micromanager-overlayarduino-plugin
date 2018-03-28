@@ -21,61 +21,40 @@
 
 package org.micromanager.overlayarduino;
 
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.File;
 import java.util.prefs.Preferences;
-import javax.swing.ImageIcon;
+
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
 import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import javax.swing.JScrollPane;
-import javax.swing.JSeparator;
-import javax.swing.JSpinner;
-import javax.swing.JTextField;
-import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.WindowConstants;
-import javax.swing.border.EtchedBorder;
 
-import net.miginfocom.swing.MigLayout;
 import org.micromanager.MMStudio;
-import org.micromanager.api.MMListenerInterface;
 import org.micromanager.api.ScriptInterface;
-import org.micromanager.utils.FileDialogs;
-import org.micromanager.utils.GUIUtils;
+import org.micromanager.arduinoio.ArduinoInputEvent;
+import org.micromanager.arduinoio.ArduinoInputListener;
+import org.micromanager.arduinoio.ArduinoIoMigForm;
 import org.micromanager.utils.MMDialog;
-import org.micromanager.utils.MMException;
 import org.micromanager.utils.ReportingUtils;
 
-import mmcorej.StrVector;
-import org.micromanager.arduinoio.*;
+import net.miginfocom.swing.MigLayout;
 
 /**
  *
  */
+@SuppressWarnings("serial")
 public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListener {
-	private MMDialog mcsPluginWindow;
 	private final ScriptInterface gui_;
 	private final mmcorej.CMMCore mmc_;
 	private final Preferences prefs_;
 	private final OverlayArduinoProcessor processor_;
-	private static SpinnerNumberModel segmentsSpinner_;
-	
-	private static ArduinoPoller poller_;
 	private String statusMessage_;
 	private final JCheckBox chkEnable_;
 	private final JCheckBox chkEmbedTags_;
@@ -83,9 +62,10 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 	private final JRadioButton radioInput0_;
 	private final JRadioButton radioInput1_;
 	private final JLabel statusLabel_;
-	private final JLabel countUpLabel_;
 	private final Font fontSmall;
 	private final Font fontSmallBold_;
+	private OverlayArduinoMigForm mcsPluginWindow;
+	private static int digitalInput_;
 
 	private static final String LABEL_ENABLE = "Enabling Arduino input plugin";
 	private static final String PREF_ENABLE = "UseArduinoInput";
@@ -106,19 +86,10 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 			processor.makeConfigurationGUI();
 			mmStudio.getAcquisitionEngine().getImageProcessors().add(processor);
 
-			ArduinoIoMigForm arduino = new ArduinoIoMigForm(mmStudio);
+			ArduinoIoMigForm arduino = ArduinoIoMigForm.getInstance(mmStudio);
 			arduino.setVisible(true);
-		} catch (ClassNotFoundException e) {
-			ReportingUtils.showError(e, "A java error has caused Micro-Manager to exit.");
-			System.exit(1);
-		} catch (IllegalAccessException e) {
-			ReportingUtils.showError(e, "A java error has caused Micro-Manager to exit.");
-			System.exit(1);
-		} catch (InstantiationException e) {
-			ReportingUtils.showError(e, "A java error has caused Micro-Manager to exit.");
-			System.exit(1);
-		} catch (UnsupportedLookAndFeelException e) {
-			ReportingUtils.showError(e, "A java error has caused Micro-Manager to exit.");
+		} catch (Exception e) {
+			ReportingUtils.logError(e);
 			System.exit(1);
 		}
 	}
@@ -150,7 +121,6 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		mcsPluginWindow = this;
 		this.setLayout(new MigLayout("flowx, fill, insets 8"));
 		this.setTitle(OverlayArduino.menuName);
-
 		loadAndRestorePosition(100, 100, 350, 250);
 
 		// Checkbox to enable this processor
@@ -170,6 +140,7 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 
 		// Checkbox for overlay or not
 		chkDrawBlocks_ = new JCheckBox();
+		chkDrawBlocks_.setFont(fontSmall);
 		chkDrawBlocks_.setText("Draw blocks on image");
 		chkDrawBlocks_.setToolTipText("Draw black-white blocks indicators at top-left.");
 		chkDrawBlocks_.setSelected(prefs_.getBoolean(PREF_OVERLAY, true));
@@ -182,6 +153,7 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 			}
 		});
 		chkEmbedTags_ = new JCheckBox();
+		chkEmbedTags_.setFont(fontSmall);
 		chkEmbedTags_.setText("Embed tags to images");
 		chkEmbedTags_.setToolTipText("Embed text tags in JSON text to every images");
 		chkEmbedTags_.setSelected(prefs_.getBoolean(PREF_EMBEDTAGS, true));
@@ -197,38 +169,12 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		add(chkEmbedTags_);
 		add(chkDrawBlocks_, "wrap");
 
-		// Spinner for segment number
-		JLabel lblSegment = new JLabel("Segment count:");
-		lblSegment.setFont(fontSmall);
-
-		final JSpinner segmentSpinner = new JSpinner();
-		segmentSpinner.setFont(fontSmall);
-		try {
-			int segCnt = prefs_.getInt("SegmentCount", 3);
-			segmentsSpinner_ = new SpinnerNumberModel(segCnt, 1, 1000, 1);
-			processor_.setSegmentCount(segCnt);
-		} catch (IllegalArgumentException e) {
-			segmentsSpinner_ = new SpinnerNumberModel(3, 1, 1000, 1);
-		}
-		segmentSpinner.setModel(segmentsSpinner_);
-		segmentSpinner.addChangeListener(new javax.swing.event.ChangeListener() {
-			@Override
-			public void stateChanged(javax.swing.event.ChangeEvent evt) {
-				int cnt = (Integer) segmentSpinner.getValue();
-				processor_.setSegmentCount(cnt);
-				prefs_.putInt("SegmentCount", cnt);
-			}
-		});
-		countUpLabel_ = new JLabel("0");
-		// Add to GUI
-		add(lblSegment);
-		add(segmentSpinner, "growx");
-		add(countUpLabel_, "wrap");
-
 		// Input signals
 		radioInput0_ = new JRadioButton("Input0");
+		radioInput0_.setFont(fontSmall);
 		radioInput0_.setEnabled(false);
 		radioInput1_ = new JRadioButton("Input1");
+		radioInput1_.setFont(fontSmall);
 		radioInput1_.setEnabled(false);
 		// Add to GUI
 		add(radioInput0_);
@@ -242,8 +188,8 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		
 		// Setup ArduinoPoller and listener
 		try {
-			poller_ = ArduinoPoller.getInstance(gui_);
-			poller_.addListener(this);
+			ArduinoIoMigForm arduino = ArduinoIoMigForm.getInstance(gui_);
+			arduino.addListener(this);
 		} catch (Exception ex) {
 			ReportingUtils.logError(ex);
 		}
@@ -293,13 +239,15 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 		prefs_.putBoolean(PREF_ENABLE, enabled);
 	}
 
+	public int getDigitalInput() {
+		return digitalInput_;
+	}
 	@Override
 	public void ValueChanged(ArduinoInputEvent e) {
-		this.setStatus(String.format("Value changed to %d, segment: %d", e.getDigitalValue(),
-				processor_.getCurrentSegmentIdx()));
+		digitalInput_ = e.getDigitalValue();
+		this.setStatus(String.format("Value changed to %d", e.getDigitalValue()));
 		radioInput0_.setSelected(e.isHighAt0());
 		radioInput1_.setSelected(e.isHighAt1());
-		countUpLabel_.setText(String.valueOf(processor_.getCurrentSegmentIdx()));
 	}
 
 	@Override
@@ -317,5 +265,4 @@ public class OverlayArduinoMigForm extends MMDialog implements ArduinoInputListe
 	@Override
 	public void IsFallingAt1() {
 	}
-
 }

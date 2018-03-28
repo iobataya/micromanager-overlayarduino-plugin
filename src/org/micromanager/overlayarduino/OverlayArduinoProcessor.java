@@ -48,20 +48,16 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 	private OverlayArduinoMigForm myFrame_;
 	@SuppressWarnings("unused")
 	private CMMCore core_;
-	private static int counterSize_ = 3;
-	private static int currentCounter_ = 0;
 	private static boolean drawBlocks = true;
 	private static boolean embedTags_ = true;
 	private static boolean digital0_ = false;
 	private static boolean digital1_ = false;
-	private static ArduinoPoller arduino_ = null;
+	private static ArduinoIoMigForm arduino_ = null;
 
 	private static final Rectangle rectBound0_ = new Rectangle(0, 0, 8, 8);
 	private static final Rectangle rectInner0_ = new Rectangle(1, 1, 6, 6);
 	private static final Rectangle rectBound1_ = new Rectangle(8, 0, 8, 8);
 	private static final Rectangle rectInner1_ = new Rectangle(9, 1, 6, 6);
-
-	private static final String TAG_SEGMENT_INDEX = "Segment-Index";
 	private static final String TAG_ARDUINO_DIGITAL0 = "Digital-Input0";
 	private static final String TAG_ARDUINO_DIGITAL1 = "Digital-Input1";
 	private static final String MSG_DONE_BLOCKS = "Painted blocks on the image";
@@ -94,7 +90,6 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 		if (embedTags_) {
 			newTags.put(TAG_ARDUINO_DIGITAL0, String.valueOf(digital0_));
 			newTags.put(TAG_ARDUINO_DIGITAL1, String.valueOf(digital1_));
-			newTags.put(TAG_SEGMENT_INDEX, currentCounter_);
 		}
 
 		// Overlay or not ?
@@ -152,23 +147,6 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 		}
 	}
 
-	public int getCurrentSegmentIdx() {
-		return currentCounter_;
-	}
-
-	public void setSegmentCount(int c) {
-		counterSize_ = c;
-	}
-
-	/**
-	 * Size of segment size
-	 * 
-	 * @return
-	 */
-	public int getSegmentCount() {
-		return counterSize_;
-	}
-
 	public void setMyFrameToNull() {
 		myFrame_ = null;
 	}
@@ -189,14 +167,6 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 		return embedTags_;
 	}
 
-	public void resetCounter() {
-		currentCounter_ = 0;
-	}
-
-	//
-	// DataProcessor
-	//
-
 	@Override
 	public void setEnabled(boolean enabled) {
 		super.setEnabled(enabled);
@@ -212,7 +182,7 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 	public void process() {
 		if (arduino_ == null) {
 			try {
-				arduino_ = ArduinoPoller.getInstance(gui_);
+				arduino_ = ArduinoIoMigForm.getInstance(gui_);
 			} catch (Exception e) {
 				ReportingUtils.logError(e);
 			}
@@ -253,6 +223,7 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 			myFrame_.dispose();
 			myFrame_ = null;
 		}
+		arduino_.removeListener(this);
 	}
 
 	@Override
@@ -263,18 +234,10 @@ public class OverlayArduinoProcessor extends DataProcessor<TaggedImage> implemen
 
 	@Override
 	public void IsRisingAt0() {
-		currentCounter_ += 1;
-		if (currentCounter_ >= counterSize_) {
-			currentCounter_ = 0;
-		}
 	}
 
 	@Override
 	public void IsFallingAt0() {
-		currentCounter_ += 1;
-		if (currentCounter_ >= counterSize_) {
-			currentCounter_ = 0;
-		}
 	}
 
 	@Override
